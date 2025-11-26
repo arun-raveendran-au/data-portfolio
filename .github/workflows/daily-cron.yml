@@ -12,4 +12,4 @@ jobs:
     steps:
       - name: Call Cron Endpoint
         run: |
-          curl -I https://YOUR-ACTUAL-APP-URL.vercel.app/api/cron
+          curl -I https://data-portfolio-rouge.vercel.app/api/cron
