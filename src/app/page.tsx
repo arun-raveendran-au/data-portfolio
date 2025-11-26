@@ -1,21 +1,26 @@
 // src/app/page.tsx
-import { getCryptoPrices } from "@/lib/crypto";
 import { neon } from "@neondatabase/serverless";
-import PriceChart from "./components/PriceChart"; // Import the chart
+import PriceChart from "./components/PriceChart";
 import ChatBot from "./components/ChatBot";
 
-// Helper to fetch history
-async function getHistory() {
+// 1. Fetch Unique Coins for the Dropdown
+async function getAvailableCoins() {
   const sql = neon(process.env.DATABASE_URL!);
-  // Get last 24 records for BTC, ordered by time
+  // Get distinct symbols that we have data for
+  const res = await sql`SELECT DISTINCT symbol FROM crypto_prices ORDER BY symbol`;
+  return res.map(row => row.symbol);
+}
+
+// 2. Fetch History for the SELECTED coin
+async function getHistory(symbol: string) {
+  const sql = neon(process.env.DATABASE_URL!);
   const response = await sql`
     SELECT price_usd as price, recorded_at as time 
     FROM crypto_prices 
-    WHERE symbol = 'BTC' 
+    WHERE symbol = ${symbol} 
     ORDER BY recorded_at ASC 
     LIMIT 24
   `;
-  // Convert dates to strings to avoid Next.js serialization warnings
   return response.map(row => ({
     ...row,
     time: row.time.toString(),
@@ -23,50 +28,83 @@ async function getHistory() {
   }));
 }
 
-export default async function Home() {
-  // Fetch live data AND history in parallel (Faster!)
-  const [liveData, historyData] = await Promise.all([
-    getCryptoPrices(),
-    getHistory()
-  ]);
+// 3. Fetch News
+async function getNews() {
+  const sql = neon(process.env.DATABASE_URL!);
+  return await sql`SELECT title, link, pub_date FROM news_articles ORDER BY pub_date DESC LIMIT 4`;
+}
 
-  const getColor = (change: number) => (change >= 0 ? "text-green-400" : "text-red-400");
+// The Page Component now accepts "searchParams" (URL parameters)
+// 1. UPDATE the function signature to accept a Promise
+export default async function Home({ 
+  searchParams 
+}: { 
+  searchParams: Promise<{ coin?: string }> 
+}) {
+  
+  // 2. AWAIT the params before reading the coin
+  const params = await searchParams;
+  const selectedCoin = (params.coin || 'BTC').toUpperCase();
+  
+  const [historyData, availableCoins, newsData] = await Promise.all([
+    getHistory(selectedCoin),
+    getAvailableCoins(),
+    getNews()
+  ]);
 
   return (
     <main className="min-h-screen bg-slate-950 text-white p-12">
-      <header className="mb-12 text-center">
+      <header className="mb-8 text-center">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 text-transparent bg-clip-text">
-          Arun's Data Portfolio
+          Arun's Market Intelligence
         </h1>
-        <p className="text-slate-400 mt-2">Real-time Ingestion & Historical Analysis</p>
       </header>
 
-      {/* The Chart Section */}
-      <div className="max-w-5xl mx-auto mb-8">
-        <PriceChart data={historyData} />
+      {/* COIN SELECTOR */}
+      <div className="max-w-5xl mx-auto mb-6 flex justify-end">
+        <form className="flex gap-2 items-center">
+          <label className="text-slate-400 text-sm">Select Asset:</label>
+          <select 
+            name="coin" 
+            defaultValue={selectedCoin}
+            // This little script submits the form instantly when you change the dropdown
+            // It causes a page reload with the new ?coin=XYZ param
+            className="bg-slate-900 border border-slate-700 rounded px-3 py-1 text-white"
+            // In a real app we'd use a Client Component, but this works for SSR
+          >
+             {availableCoins.map((c) => (
+               <option key={c} value={c}>{c}</option>
+             ))}
+          </select>
+          <button type="submit" className="bg-blue-600 px-4 py-1 rounded text-sm">Update</button>
+        </form>
       </div>
 
-      {/* The AI Analyst Section */}
+      {/* CHART */}
+      <div className="max-w-5xl mx-auto mb-8">
+        <h2 className="text-xl mb-4 font-semibold text-slate-300">24-Hour Trend: {selectedCoin}</h2>
+        {historyData.length > 0 ? (
+          <PriceChart data={historyData} />
+        ) : (
+          <div className="p-12 text-center border border-slate-800 rounded bg-slate-900 text-slate-500">
+            No history data found for {selectedCoin}. (Run the Cron Job!)
+          </div>
+        )}
+      </div>
+
+      {/* AI CHAT */}
       <ChatBot />
 
-      {/* The Cards Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-slate-300">Bitcoin (BTC)</h2>
-          <div className="mt-4">
-            <p className="text-3xl font-bold">${liveData.bitcoin.usd.toLocaleString()}</p>
-            <p className={`text-sm mt-1 ${getColor(liveData.bitcoin.usd_24h_change)}`}>
-              {liveData.bitcoin.usd_24h_change.toFixed(2)}% (24h)
-            </p>
-          </div>
-        </div>
-        
-        {/* (Keep the other cards for ETH and SOL if you want) */}
-         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-slate-300">Ethereum (ETH)</h2>
-          <div className="mt-4">
-            <p className="text-3xl font-bold">${liveData.ethereum.usd.toLocaleString()}</p>
-          </div>
+      {/* NEWS TICKER */}
+      <div className="max-w-5xl mx-auto mt-12">
+        <h3 className="text-slate-400 mb-4 border-b border-slate-800 pb-2">Latest Headlines</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {newsData.map((n, i) => (
+            <a key={i} href={n.link} target="_blank" className="p-4 bg-slate-900 border border-slate-800 rounded hover:border-blue-500 transition-all">
+              <h4 className="font-medium text-blue-100">{n.title}</h4>
+              <p className="text-xs text-slate-500 mt-2">{new Date(n.pub_date).toLocaleString()}</p>
+            </a>
+          ))}
         </div>
       </div>
       {/* NEW FOOTER */}
