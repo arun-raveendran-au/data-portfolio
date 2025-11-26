@@ -69,6 +69,33 @@ export default async function Home() {
           </div>
         </div>
       </div>
+      {/* NEW FOOTER */}
+      <AboutMe />
     </main>
+  );
+}
+
+function AboutMe() {
+  return (
+    <div className="mt-24 border-t border-slate-800 pt-12 text-center">
+      <h2 className="text-2xl font-bold text-slate-200">Built by Arun Raveendran</h2>
+      <p className="text-slate-400 mt-2 mb-6">Senior Data Engineer & Full Stack Developer</p>
+      
+      <div className="flex justify-center gap-4 text-sm text-slate-500">
+        <span className="px-3 py-1 bg-slate-900 rounded border border-slate-800">Next.js 14</span>
+        <span className="px-3 py-1 bg-slate-900 rounded border border-slate-800">Neon Postgres</span>
+        <span className="px-3 py-1 bg-slate-900 rounded border border-slate-800">Google Gemini AI</span>
+        <span className="px-3 py-1 bg-slate-900 rounded border border-slate-800">Tailwind CSS</span>
+      </div>
+
+      <div className="mt-8 flex justify-center gap-6">
+        <a href="https://github.com/arun-raveendran-au/data-portfolio" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">
+          View Source Code
+        </a>
+        <a href="https://www.linkedin.com/in/raveendran-arun" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">
+          LinkedIn
+        </a>
+      </div>
+    </div>
   );
 }
