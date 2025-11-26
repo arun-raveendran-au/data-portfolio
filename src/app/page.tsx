@@ -2,6 +2,7 @@
 import { getCryptoPrices } from "@/lib/crypto";
 import { neon } from "@neondatabase/serverless";
 import PriceChart from "./components/PriceChart"; // Import the chart
+import ChatBot from "./components/ChatBot";
 
 // Helper to fetch history
 async function getHistory() {
@@ -44,6 +45,9 @@ export default async function Home() {
       <div className="max-w-5xl mx-auto mb-8">
         <PriceChart data={historyData} />
       </div>
+
+      {/* The AI Analyst Section */}
+      <ChatBot />
 
       {/* The Cards Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
